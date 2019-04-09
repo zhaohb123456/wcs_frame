@@ -115,6 +115,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="resource1.h" />
     <ClInclude Include="wcs_frame\src\cpu\cpu_capability.h" />
     <ClInclude Include="wcs_frame\src\system_compatible.h" />
     <ClInclude Include="wcs_frame\src\thread\thread_pool.h" />
@@ -122,6 +124,7 @@
   <ItemGroup>
     <ClCompile Include="wcs_frame\src\cpu\cpu_capability.c" />
     <ClCompile Include="wcs_frame\src\main.c" />
+    <ClCompile Include="wcs_frame\src\Makefile" />
     <ClCompile Include="wcs_frame\src\thread\thread_pool.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
