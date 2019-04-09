@@ -2,7 +2,6 @@
 #include <stdlib.h>   
 #include <sys/types.h>     
 #include <signal.h>   
-#include "../system_compatible.h"
 #include "thread_pool.h"
 
 
