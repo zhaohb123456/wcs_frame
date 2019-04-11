@@ -11,19 +11,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="wcs_frame\src\system_compatible.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="wcs_frame\src\cpu\cpu_capability.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="wcs_frame\src\thread\thread_pool.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="resource.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="resource1.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -35,9 +26,6 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="wcs_frame\src\cpu\cpu_capability.c">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="wcs_frame\src\Makefile">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
