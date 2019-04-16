@@ -2,18 +2,21 @@
 #include <stdlib.h>   
 #include <sys/types.h>     
 #include <signal.h>   
+#include <assert.h>
+#include <winsock2.h>
+#include <windows.h>
 #include "thread_pool.h"
 
 
 
 
-static void *tp_work_thread(void *pthread);
-static void *tp_manage_thread(void *pthread);
+static DWORD WINAPI tp_work_thread(LPVOID pthread);
+static DWORD WINAPI tp_manage_thread(LPVOID pthread);
 
 static TPBOOL tp_init(tp_thread_pool *this);
 static void tp_close(tp_thread_pool *this);
-static void tp_process_job(tp_thread_pool *this, tp_work *worker, tp_work_desc *job);
-static int  tp_get_thread_by_id(tp_thread_pool *this, int id);
+static void tp_process_job(tp_thread_pool *this, tp_work *worker, tp_work_param *job);
+static int  tp_get_thread_by_id(tp_thread_pool *this, unsigned long id);
 static TPBOOL tp_add_thread(tp_thread_pool *this);
 static TPBOOL tp_delete_thread(tp_thread_pool *this);
 static int  tp_get_tp_status(tp_thread_pool *this);
@@ -64,27 +67,41 @@ tp_thread_pool *creat_thread_pool(int min_num, int max_num) {
   */
 TPBOOL tp_init(tp_thread_pool *this) {
 	int i;
-	int err;
+	HANDLE ThreadHandle;
 
 	//creat work thread and init work thread info   
 	for (i = 0; i < this->min_th_num; i++) {
 		pthread_cond_init(&this->thread_info[i].thread_cond, NULL);
 		pthread_mutex_init(&this->thread_info[i].thread_lock, NULL);
 
-		err = pthread_create(&this->thread_info[i].thread_id, NULL, tp_work_thread, this);
-		if (0 != err) {
+		//err = pthread_create(&this->thread_info[i].thread_id, NULL, tp_work_thread, this);
+		//if (0 != err) {
+		//	printf("tp_init: creat work thread failed\n");
+		//	return FALSE;
+		//}
+
+		ThreadHandle = CreateThread(NULL, 0, tp_work_thread, this, 0, &this->thread_info[i].thread_id);
+		if (ThreadHandle == NULL) {
 			printf("tp_init: creat work thread failed\n");
 			return FALSE;
 		}
+
+		// Close the thread handle
+		CloseHandle(ThreadHandle);
+
+
 		printf("tp_init: creat work thread %d\n", this->thread_info[i].thread_id);
 	}
 
 	//creat manage thread   
-	err = pthread_create(&this->manage_thread_id, NULL, tp_manage_thread, this);
-	if (0 != err) {
+	ThreadHandle = CreateThread(NULL, 0, tp_manage_thread, this, 0, &this->manage_thread_id);
+	if (ThreadHandle == NULL) {
 		printf("tp_init: creat manage thread failed\n");
 		return FALSE;
 	}
+	// Close the thread handle
+	CloseHandle(ThreadHandle);
+
 	printf("tp_init: creat manage thread %d\n", this->manage_thread_id);
 
 	return TRUE;
@@ -125,7 +142,7 @@ void tp_close(tp_thread_pool *this) {
   * job: user task para
   * return:
   */
-void tp_process_job(tp_thread_pool *this, tp_work *worker, tp_work_desc *job) {
+void tp_process_job(tp_thread_pool *this, tp_work *worker, tp_work_param *job) {
 	int i;
 	int tmpid;
 
@@ -138,8 +155,8 @@ void tp_process_job(tp_thread_pool *this, tp_work *worker, tp_work_desc *job) {
 			this->thread_info[i].is_busy = TRUE;
 			pthread_mutex_unlock(&this->thread_info[i].thread_lock);
 
-			this->thread_info[i].th_work = worker;
-			this->thread_info[i].th_job = job;
+			this->thread_info[i].work = worker;
+			this->thread_info[i].work_param = job;
 
 			printf("tp_process_job: informing idle working thread %d, thread id is %d\n", i, this->thread_info[i].thread_id);
 			pthread_cond_signal(&this->thread_info[i].thread_cond);
@@ -174,7 +191,7 @@ void tp_process_job(tp_thread_pool *this, tp_work *worker, tp_work_desc *job) {
   * return:
   *     seq num in thread info struct array
   */
-int tp_get_thread_by_id(tp_thread_pool *this, int id) {
+int tp_get_thread_by_id(tp_thread_pool *this, unsigned long id) {
 	int i;
 
 	for (i = 0; i < this->cur_th_num; i++) {
@@ -266,7 +283,7 @@ static int  tp_get_tp_status(tp_thread_pool *this) {
 	}
 
 	//0.2? or other num?   
-	if (busy_num / (this->cur_th_num) < BUSY_THRESHOLD)
+	if ((this->cur_th_num)/busy_num > THRESHOLD_BUSY)
 		return 0;//idle status   
 	else
 		return 1;//busy or normal status       
@@ -278,13 +295,15 @@ static int  tp_get_tp_status(tp_thread_pool *this) {
   *     pthread: thread pool struct ponter
   * return:
   */
-static void *tp_work_thread(void *pthread) {
-	pthread_t curid;//current thread id   
+static DWORD WINAPI tp_work_thread(LPVOID pthread) {
+	DWORD curid;//current thread id   
 	int nseq;//current thread seq in the this->thread_info array   
+
+	assert(pthread);
 	tp_thread_pool *this = (tp_thread_pool*)pthread;//main thread pool struct instance   
 
 	//get current thread id   
-	curid = pthread_self();
+	curid = GetCurrentThreadId();
 
 	//get current thread's seq in the thread info struct array.   
 	nseq = this->get_thread_by_id(this, curid);
@@ -300,11 +319,11 @@ static void *tp_work_thread(void *pthread) {
 
 		printf("%d thread do work!\n", pthread_self());
 
-		tp_work *work = this->thread_info[nseq].th_work;
-		tp_work_desc *job = this->thread_info[nseq].th_job;
+		tp_work *work = this->thread_info[nseq].work;
+		tp_work_param *param = this->thread_info[nseq].work_param;
 
 		//process   
-		work->process_job(work, job);
+		work->work_func(param);
 
 		//thread state be set idle after work   
 		pthread_mutex_lock(&this->thread_info[nseq].thread_lock);
@@ -321,7 +340,7 @@ static void *tp_work_thread(void *pthread) {
   *     pthread: thread pool struct ponter
   * return:
   */
-static void *tp_manage_thread(void *pthread) {
+static DWORD WINAPI tp_manage_thread(LPVOID pthread) {
 	tp_thread_pool *this = (tp_thread_pool*)pthread;//main thread pool struct instance   
 
 	//1?   
