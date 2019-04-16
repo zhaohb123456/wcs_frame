@@ -47,7 +47,7 @@ struct tp_thread_info_s {
 struct tp_thread_pool_s {
 	TPBOOL(*init)(tp_thread_pool *this);
 	void(*close)(tp_thread_pool *this);
-	void(*process_job)(tp_thread_pool *this, tp_work *worker, tp_work_desc *job);
+	void(*process_job)(tp_thread_pool *this, tp_work *worker, tp_work_param *job);
 	int(*get_thread_by_id)(tp_thread_pool *this, int id);
 	TPBOOL(*add_thread)(tp_thread_pool *this);
 	TPBOOL(*delete_thread)(tp_thread_pool *this);
